@@ -1,213 +1,38 @@
-# =============================================================================
-# SECRETS & ENVIRONMENT VARIABLES
-# =============================================================================
+# Environment variables
 .env
 .env.*
-*.pem
-*.key
-*.p12
-*.pfx
-secrets/
-credentials/
+!.env.example
 
-
-# Virtual environments
-venv/
-.venv/
-env/
-ENV/
-
-# Bytecode
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.pyc
 *.pyo
+*.pyd
 
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-*.egg
-.eggs/
-MANIFEST
+# Virtual environment
+venv/
+.venv/
 
-# Test artefacts
+# Testing / coverage
 .pytest_cache/
 .coverage
-.coverage.*
 htmlcov/
-coverage.xml
-*.cover
-*.log
 
-# MyPy / type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Ruff / flake8 / pylint caches
-.ruff_cache/
-.pylintrc_cache
-
-# Jupyter (if data science work lands in the repo)
-.ipynb_checkpoints/
-*.ipynb
-
-# Celery beat schedule file (future: background tasks)
-celerybeat-schedule
-celerybeat.pid
-
-# SQLite (local dev fallback DB)
-*.sqlite3
-*.db
-
-
-
-# DATA & UPLOADS  
-data/uploads/
-data/exports/
-data/backups/
-data/cache/
-data/raw/
-*.csv
-*.json.gz
-*.parquet
-*.pkl
-*.pickle
-
-# Keep placeholder so the `data/` folder itself is tracked
-!data/.gitkeep
-
-
-# =============================================================================
-# DOCKER
-# =============================================================================
-# Don't ignore docker-compose.yml (it's safe — no secrets, uses env vars)
-# DO ignore local overrides that may contain secrets
-docker-compose.override.yml
-docker-compose.local.yml
-.dockerignore
-
-
-# =============================================================================
-# DATABASE DUMPS & MIGRATIONS ARTIFACTS
-# =============================================================================
-*.sql.gz
-*.dump
-*.bak
-pg_dump/
-alembic_temp/
-
-
-# Frontend
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/dist/
-frontend/.nuxt/
-frontend/build/
-frontend/.turbo/
-frontend/.vercel/
-frontend/.env
-frontend/.env.*
-
-# Storybook
-frontend/storybook-static/
-
-# Playwright / Cypress test artefacts
-frontend/playwright-report/
-frontend/test-results/
-frontend/cypress/screenshots/
-frontend/cypress/videos/
-
-
-# =============================================================================
-# MACHINE LEARNING / AI MODELS (future)
-# =============================================================================
-*.h5
-*.hdf5
-*.pt
-*.pth
-*.ckpt
-*.safetensors
-*.onnx
-models/
-checkpoints/
-embeddings/
-
-
-# =============================================================================
-# LOGS
-# =============================================================================
-logs/
-*.log
-*.log.*
-log/
-
-
-# =============================================================================
-# OS & EDITOR JUNK
-# =============================================================================
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Linux
-*~
-
-# VSCode
+# IDE
 .vscode/
-!.vscode/extensions.json
-!.vscode/settings.json
-
-# JetBrains (PyCharm, WebStorm …)
 .idea/
-*.iml
-*.iws
 
-# Vim / Emacs swap files
-*.swp
-*.swo
-[._]*.s[a-v][a-z]
-[._]*.sw[a-p]
+# Node
+node_modules/
+.next/
+out/
 
+# OS
+.DS_Store
+Thumbs.db
 
-# =============================================================================
-# CI / CD & DEPLOYMENT ARTEFACTS (future)
-# =============================================================================
-.github/secrets/
-*.tfstate
-*.tfstate.backup
-.terraform/
-terraform.tfvars
-*.tfvars
+# Logs
+*.log
 
-# Ansible vault files
-vault_password_file
-
-# Kubernetes secrets (never commit raw Secret manifests)
-k8s/secrets/
-*-secret.yaml
-*-secret.yml
-
-
-# =============================================================================
-# MISC
-# =============================================================================
-*.tmp
-*.temp
-*.bak
-*.orig
-*.rej
-.cache/
-tmp/
-temp/
+# Local database/cache
+*.sqlite
