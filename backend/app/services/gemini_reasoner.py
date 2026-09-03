@@ -1,3 +1,4 @@
+import time
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -80,26 +81,50 @@ Analyze the recovery context and recommend the single best action.
 """
 
 
-def recommend_recovery_action(
-    context: RecoveryContext,
-) -> RecoveryDecision:
-
+def recommend_recovery_action(context):
     client = get_gemini_client()
 
-    response = client.models.generate_content(
-        model="gemini-3.7-flash",
-        contents=build_reasoning_prompt(context),
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=RecoveryDecision,
-            temperature=0.2,
-        ),
-    )
+    max_retries = 2
 
-    if response.parsed is not None:
-        return response.parsed
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.7-flash",
+                contents=build_reasoning_prompt(context),
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=RecoveryDecision,
+                    temperature=0.2,
+                ),
+            )
 
-    if response.text:
-        return RecoveryDecision.model_validate_json(response.text)
+            if response.parsed is not None:
+                return response.parsed
 
-    raise RuntimeError("Gemini returned an empty response.")
+            if response.text:
+                return RecoveryDecision.model_validate_json(response.text)
+
+            raise RuntimeError("Gemini returned an empty response.")
+
+        except Exception as exc:
+            error_text = str(exc)
+
+            # Quota/rate-limit errors should not be retried
+            # repeatedly because the quota will remain exhausted.
+            if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
+                raise RuntimeError(
+                    "Gemini rate limit/quota exceeded."
+                ) from exc
+
+            # Temporary Gemini availability errors can be retried.
+            if "503" in error_text or "UNAVAILABLE" in error_text:
+                if attempt < max_retries:
+                    wait_seconds = 2 ** attempt
+                    print(
+                        f"Gemini temporarily unavailable. "
+                        f"Retrying in {wait_seconds}s..."
+                    )
+                    time.sleep(wait_seconds)
+                    continue
+
+            raise

@@ -50,13 +50,15 @@ def execute_recovery(payment_id: int) -> dict:
         # ---------------------------------------------------------
         recovery_case = db.execute(
             select(RecoveryCase)
-            .where(RecoveryCase.payment_id == payment_id)
-            .order_by(RecoveryCase.id.desc())
-        ).scalars().first()
+            .where(
+                RecoveryCase.payment_id == payment_id,
+                RecoveryCase.status == "PENDING",
+            )
+        ).scalar_one_or_none()
 
         if recovery_case is None:
             raise ValueError(
-                f"No recovery case found for payment {payment_id}."
+                f"No pending recovery case found for payment {payment_id}."
             )
 
         # ---------------------------------------------------------
