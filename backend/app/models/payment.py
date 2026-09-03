@@ -18,6 +18,13 @@ class Payment(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    transaction_id: Mapped[str] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
     order_id: Mapped[int] = mapped_column(
         ForeignKey("orders.id"),
         nullable=False,
