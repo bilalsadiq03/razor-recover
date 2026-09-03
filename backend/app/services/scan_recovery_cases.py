@@ -27,9 +27,21 @@ def scan_failed_payments():
             f"Found {len(failed_payments)} failed payments."
         )
 
-        created = 0
+        created_count = 0
+        skipped_count = 0
 
         for payment in failed_payments:
+
+            existing_case = db.execute(
+                select(RecoveryCase.id)
+                .where(
+                    RecoveryCase.payment_id == payment.id
+                )
+            ).scalar_one_or_none()
+
+            if existing_case is not None:
+                skipped_count += 1
+                continue
 
             customer = db.get(
                 Customer,
@@ -94,13 +106,12 @@ def scan_failed_payments():
 
             db.add(recovery_case)
 
-            created += 1
+            created_count += 1
 
         db.commit()
 
-        print(
-            f"Created {created} recovery cases."
-        )
+        print(f"Recovery cases created: {created_count}")
+        print(f"Existing cases skipped: {skipped_count}")
 
     except Exception:
         db.rollback()
