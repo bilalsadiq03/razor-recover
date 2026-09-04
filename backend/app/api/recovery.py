@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.core.database import SessionLocal
 from app.models import Payment, RecoveryCase
-
+from app.services.recovery_executor import execute_recovery
 
 router = APIRouter(
     prefix="/api/recovery",
@@ -86,3 +86,25 @@ def get_recovery_case(payment_id: int):
 
     finally:
         db.close()
+
+@router.post("/{payment_id}/execute")
+def execute_payment_recovery(payment_id: int):
+    try:
+        result = execute_recovery(payment_id)
+
+        return {
+            "success": True,
+            "result": result,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        )
