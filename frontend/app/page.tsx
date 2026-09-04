@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-// import MetricCard from "@/app/components/dashboard/MerticCard";
-import RecoveryTable from "@/app/components/dashboard/RecoveryTable";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type {
   ExecutionResult,
@@ -15,6 +17,9 @@ import {
   getPayment,
   getRecoveryCases,
 } from "@/lib/api";
+
+import RecoveryTable from "@/app/components/dashboard/RecoveryTable";
+import PaymentDetails from "@/app/components/dashboard/PaymentDetails";
 
 export default function Home() {
   const [cases, setCases] = useState<RecoveryCase[]>([]);
@@ -32,6 +37,9 @@ export default function Home() {
 
   const [executionResult, setExecutionResult] =
     useState<ExecutionResult | null>(null);
+
+  const selectedPaymentRef =
+    useRef<HTMLElement | null>(null);
 
   async function loadCases() {
     setLoading(true);
@@ -69,6 +77,7 @@ export default function Home() {
       );
     }
   }
+
   async function executeRecovery(
     paymentId: number
   ) {
@@ -95,6 +104,13 @@ export default function Home() {
     }
   }
 
+  /*
+   * Initial dashboard load.
+   *
+   * We intentionally avoid calling setState directly
+   * from the effect body to satisfy React's
+   * set-state-in-effect rule.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -127,12 +143,30 @@ export default function Home() {
     };
   }, []);
 
+  /*
+   * When a payment is inspected, automatically scroll
+   * to the selected payment section.
+   *
+   * This effect interacts with the browser DOM rather
+   * than synchronously changing React state.
+   */
+  useEffect(() => {
+    if (!selectedPayment) {
+      return;
+    }
+
+    selectedPaymentRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [selectedPayment]);
+
   const filteredCases = cases.filter((item) => {
     const matchesStatus =
       statusFilter === "ALL" ||
       item.status === statusFilter;
 
-    const query = search.toLowerCase();
+    const query = search.toLowerCase().trim();
 
     const matchesSearch =
       !query ||
@@ -231,7 +265,7 @@ export default function Home() {
           />
         </section>
 
-        {/* Cases */}
+        {/* Recovery Cases */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900">
 
           {/* Toolbar */}
@@ -248,44 +282,55 @@ export default function Home() {
 
             <div className="flex flex-col gap-3 sm:flex-row">
 
+              {/* Search */}
               <input
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
+                onChange={(event) =>
+                  setSearch(event.target.value)
                 }
                 placeholder="Search payment or transaction"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm outline-none transition focus:border-indigo-500"
               />
 
+              {/* Status filter */}
               <select
                 value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(e.target.value)
+                onChange={(event) =>
+                  setStatusFilter(event.target.value)
                 }
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm outline-none transition focus:border-indigo-500"
               >
                 <option value="ALL">
                   All
                 </option>
+
                 <option value="PENDING">
                   Pending
                 </option>
+
                 <option value="RECOVERED">
                   Recovered
                 </option>
+
                 <option value="FAILED">
                   Failed
                 </option>
+
                 <option value="BLOCKED">
                   Blocked
                 </option>
               </select>
 
+              {/* Refresh */}
               <button
+                type="button"
                 onClick={loadCases}
-                className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm transition hover:bg-slate-800"
+                disabled={loading}
+                className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Refresh
+                {loading
+                  ? "Refreshing..."
+                  : "Refresh"}
               </button>
             </div>
           </div>
@@ -297,24 +342,27 @@ export default function Home() {
             onInspect={inspectPayment}
           />
 
+          {/* Table footer */}
           <div className="border-t border-slate-800 px-6 py-4 text-xs text-slate-500">
-            Showing {filteredCases.length} of{" "}
+            Showing{" "}
+            {filteredCases.length} of{" "}
             {cases.length} loaded cases
           </div>
         </section>
 
-        {/* Selected Case */}
+        {/* Selected Payment */}
         {selectedPayment && (
-          <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
+          <section
+            ref={selectedPaymentRef}
+            className="mt-8 scroll-mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6"
+          >
+            {/* Selected case header */}
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h2 className="text-xl font-semibold">
                   Recovery Case #
-                  {
-                    selectedPayment.recovery_case
-                      ?.id
-                  }
+                  {selectedPayment.recovery_case?.id ??
+                    "—"}
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
@@ -324,139 +372,24 @@ export default function Home() {
               </div>
 
               <button
-                onClick={() =>
-                  setSelectedPayment(null)
-                }
-                className="text-sm text-slate-500 hover:text-white"
+                type="button"
+                onClick={() => {
+                  setSelectedPayment(null);
+                  setExecutionResult(null);
+                }}
+                className="rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-800 hover:text-white"
               >
                 Close
               </button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-
-              <Info
-                label="Transaction"
-                value={
-                  selectedPayment.transaction_id
-                }
-              />
-
-              <Info
-                label="Amount"
-                value={`₹${Number(
-                  selectedPayment.amount
-                ).toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                })}`}
-              />
-
-              <Info
-                label="Failure Reason"
-                value={
-                  selectedPayment.failure_reason
-                }
-              />
-
-              <Info
-                label="Recoverability"
-                value={
-                  selectedPayment.recovery_case
-                    ?.recoverability ?? "—"
-                }
-              />
-
-              <Info
-                label="Recommended Action"
-                value={
-                  selectedPayment.recovery_case
-                    ?.recommended_action ?? "—"
-                }
-              />
-
-              <Info
-                label="Status"
-                value={
-                  selectedPayment.recovery_case
-                    ?.status ?? "—"
-                }
-              />
-            </div>
-
-            {/* Execute */}
-            {selectedPayment.recovery_case
-              ?.status === "PENDING" && (
-                <button
-                  onClick={() =>
-                    executeRecovery(
-                      selectedPayment.payment_id
-                    )
-                  }
-                  disabled={executing}
-                  className="mt-6 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-medium transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {executing
-                    ? "Executing Recovery..."
-                    : "Execute Recovery"}
-                </button>
-              )}
-
-            {/* Execution result */}
-            {executionResult && (
-              <div className="mt-6 rounded-xl border border-slate-700 bg-slate-950 p-5">
-                <h3 className="font-semibold">
-                  Execution Result
-                </h3>
-
-                <div className="mt-4 grid gap-4 md:grid-cols-3">
-                  <Info
-                    label="AI Action"
-                    value={
-                      executionResult.ai_action
-                    }
-                  />
-
-                  <Info
-                    label="Approved Action"
-                    value={
-                      executionResult.approved_action ??
-                      "—"
-                    }
-                  />
-
-                  <Info
-                    label="Confidence"
-                    value={`${(
-                      executionResult.confidence *
-                      100
-                    ).toFixed(0)}%`}
-                  />
-
-                  <Info
-                    label="Status"
-                    value={
-                      executionResult.status
-                    }
-                  />
-
-                  <Info
-                    label="Recovered"
-                    value={`₹${Number(
-                      executionResult.amount_recovered
-                    ).toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}`}
-                  />
-
-                  <Info
-                    label="Reason"
-                    value={
-                      executionResult.reason
-                    }
-                  />
-                </div>
-              </div>
-            )}
+            {/* Payment details + recovery execution */}
+            <PaymentDetails
+              payment={selectedPayment}
+              executionResult={executionResult}
+              executing={executing}
+              onExecute={executeRecovery}
+            />
           </section>
         )}
       </div>
@@ -464,6 +397,9 @@ export default function Home() {
   );
 }
 
+/* ============================================================
+   Metric Card
+   ============================================================ */
 
 function MetricCard({
   label,
@@ -479,27 +415,6 @@ function MetricCard({
       </p>
 
       <p className="mt-2 text-2xl font-bold">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-
-function Info({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-      <p className="text-xs uppercase tracking-wider text-slate-500">
-        {label}
-      </p>
-
-      <p className="mt-2 break-all text-sm font-medium text-slate-200">
         {value}
       </p>
     </div>

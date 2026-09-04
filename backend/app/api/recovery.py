@@ -32,6 +32,15 @@ class RecoveryCaseResponse(BaseModel):
     amount_recovered: float
 
 
+class PaymentResponse(BaseModel):
+    payment_id: int
+    transaction_id: str
+    amount: float
+    payment_status: str
+    failure_reason: str
+    recovery_case: RecoveryCaseResponse | None
+
+
 class RecoveryExecutionResponse(BaseModel):
     payment_id: int
     transaction_id: str
@@ -122,7 +131,9 @@ def list_recovery_cases(
                 Payment,
                 Payment.id == RecoveryCase.payment_id,
             )
-            .order_by(RecoveryCase.id.desc())
+            .order_by(
+                RecoveryCase.id.desc()
+            )
             .limit(limit)
         )
 
@@ -152,6 +163,84 @@ def list_recovery_cases(
             )
             for case, transaction_id in rows
         ]
+
+    finally:
+        db.close()
+
+
+# ============================================================
+# Get Payment + Recovery Details
+# ============================================================
+
+@router.get(
+    "/{payment_id}",
+    response_model=PaymentResponse,
+)
+def get_payment_recovery(payment_id: int):
+    """
+    Return payment details and its latest recovery case.
+    """
+
+    db = SessionLocal()
+
+    try:
+        payment = db.execute(
+            select(Payment).where(
+                Payment.id == payment_id
+            )
+        ).scalar_one_or_none()
+
+        if payment is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Payment {payment_id} not found.",
+            )
+
+        recovery_case = db.execute(
+            select(RecoveryCase)
+            .where(
+                RecoveryCase.payment_id
+                == payment_id
+            )
+            .order_by(
+                RecoveryCase.id.desc()
+            )
+        ).scalars().first()
+
+        recovery_response = None
+
+        if recovery_case is not None:
+            recovery_response = RecoveryCaseResponse(
+                id=recovery_case.id,
+                payment_id=recovery_case.payment_id,
+                transaction_id=payment.transaction_id,
+                amount=float(
+                    recovery_case.amount_at_risk
+                ),
+                status=recovery_case.status,
+                recoverability=recovery_case.recoverability,
+                recommended_action=(
+                    recovery_case.recommended_action
+                ),
+                approved_action=(
+                    recovery_case.approved_action
+                ),
+                amount_at_risk=float(
+                    recovery_case.amount_at_risk
+                ),
+                amount_recovered=float(
+                    recovery_case.amount_recovered
+                ),
+            )
+
+        return PaymentResponse(
+            payment_id=payment.id,
+            transaction_id=payment.transaction_id,
+            amount=float(payment.amount),
+            payment_status=payment.status,
+            failure_reason=payment.failure_reason,
+            recovery_case=recovery_response,
+        )
 
     finally:
         db.close()
@@ -201,8 +290,12 @@ def execute_batch_recovery(
         return run_batch(
             batch_size=request.batch_size,
             delay_seconds=request.delay_seconds,
-            max_revenue_at_risk=request.max_revenue_at_risk,
-            max_consecutive_errors=request.max_consecutive_errors,
+            max_revenue_at_risk=(
+                request.max_revenue_at_risk
+            ),
+            max_consecutive_errors=(
+                request.max_consecutive_errors
+            ),
         )
 
     except Exception:
@@ -210,57 +303,3 @@ def execute_batch_recovery(
             status_code=500,
             detail="Batch recovery execution failed.",
         )
-
-@router.get("")
-def get_recovery_cases(limit: int = 50):
-    """Return recent recovery cases for the dashboard."""
-
-    from sqlalchemy import select
-
-    from app.core.database import SessionLocal
-    from app.models import Payment, RecoveryCase
-
-    db = SessionLocal()
-
-    try:
-        cases = db.execute(
-            select(
-                RecoveryCase.id,
-                RecoveryCase.payment_id,
-                Payment.transaction_id,
-                Payment.amount,
-                RecoveryCase.status,
-                RecoveryCase.recoverability,
-                RecoveryCase.recommended_action,
-                RecoveryCase.approved_action,
-                RecoveryCase.amount_at_risk,
-                RecoveryCase.amount_recovered,
-            )
-            .join(
-                Payment,
-                Payment.id == RecoveryCase.payment_id,
-            )
-            .order_by(RecoveryCase.id.desc())
-            .limit(limit)
-        ).all()
-
-        return [
-            {
-                "id": case.id,
-                "payment_id": case.payment_id,
-                "transaction_id": case.transaction_id,
-                "amount": float(case.amount),
-                "status": case.status,
-                "recoverability": case.recoverability,
-                "recommended_action": case.recommended_action,
-                "approved_action": case.approved_action,
-                "amount_at_risk": float(case.amount_at_risk),
-                "amount_recovered": float(
-                    case.amount_recovered
-                ),
-            }
-            for case in cases
-        ]
-
-    finally:
-        db.close()

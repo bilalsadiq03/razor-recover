@@ -12,23 +12,42 @@ async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(
-    `${API_URL}${path}`,
-    options
-  );
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${API_URL}${path}`,
+      {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+        },
+      }
+    );
+  } catch {
+    throw new Error(
+      "Unable to connect to the RazorRecover API."
+    );
+  }
 
   if (!response.ok) {
     let message = "API request failed.";
 
     try {
-      const body = await response.json();
+      const body: unknown = await response.json();
 
-      if (typeof body?.detail === "string") {
+      if (
+        typeof body === "object" &&
+        body !== null &&
+        "detail" in body &&
+        typeof body.detail === "string"
+      ) {
         message = body.detail;
       }
     } catch {
-      // Keep the generic message when the response
-      // does not contain JSON.
+      // Use the generic message when the response
+      // does not contain a JSON error body.
     }
 
     throw new Error(message);
