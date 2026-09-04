@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+// import MetricCard from "@/app/components/dashboard/MerticCard";
+import RecoveryTable from "@/app/components/dashboard/RecoveryTable";
 
 import type {
   ExecutionResult,
@@ -289,122 +291,11 @@ export default function Home() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="px-6 py-4">
-                    Payment
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Amount
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Recoverability
-                  </th>
-
-                  <th className="px-6 py-4">
-                    AI Action
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Status
-                  </th>
-
-                  <th className="px-6 py-4">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-800">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-12 text-center text-slate-500"
-                    >
-                      Loading recovery cases...
-                    </td>
-                  </tr>
-                ) : filteredCases.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-12 text-center text-slate-500"
-                    >
-                      No recovery cases found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCases.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="transition hover:bg-slate-800/40"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="font-medium">
-                          #{item.payment_id}
-                        </div>
-
-                        <div className="mt-1 text-xs text-slate-500">
-                          {item.transaction_id}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 font-medium">
-                        ₹
-                        {Number(
-                          item.amount_at_risk
-                        ).toLocaleString(
-                          "en-IN",
-                          {
-                            minimumFractionDigits: 2,
-                          }
-                        )}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <Badge
-                          value={
-                            item.recoverability
-                          }
-                        />
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <span className="text-slate-300">
-                          {item.recommended_action ??
-                            "—"}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <Badge
-                          value={item.status}
-                        />
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() =>
-                            inspectPayment(
-                              item.payment_id
-                            )
-                          }
-                          className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium transition hover:bg-slate-800"
-                        >
-                          Inspect
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <RecoveryTable
+            cases={filteredCases}
+            loading={loading}
+            onInspect={inspectPayment}
+          />
 
           <div className="border-t border-slate-800 px-6 py-4 text-xs text-slate-500">
             Showing {filteredCases.length} of{" "}
@@ -612,51 +503,5 @@ function Info({
         {value}
       </p>
     </div>
-  );
-}
-
-
-function Badge({
-  value,
-}: {
-  value: string;
-}) {
-  const normalized = value.toUpperCase();
-
-  let classes =
-    "bg-slate-800 text-slate-300";
-
-  if (
-    normalized === "HIGH" ||
-    normalized === "RECOVERED" ||
-    normalized === "SUCCESS"
-  ) {
-    classes =
-      "bg-emerald-500/10 text-emerald-400";
-  }
-
-  if (
-    normalized === "MEDIUM" ||
-    normalized === "PENDING"
-  ) {
-    classes =
-      "bg-amber-500/10 text-amber-400";
-  }
-
-  if (
-    normalized === "LOW" ||
-    normalized === "FAILED" ||
-    normalized === "BLOCKED"
-  ) {
-    classes =
-      "bg-red-500/10 text-red-400";
-  }
-
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${classes}`}
-    >
-      {value}
-    </span>
   );
 }
