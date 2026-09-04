@@ -20,6 +20,7 @@ import {
 
 import RecoveryTable from "@/app/components/dashboard/RecoveryTable";
 import PaymentDetails from "@/app/components/dashboard/PaymentDetails";
+import BatchRecovery from "@/app/components/dashboard/BtachRecovery";
 
 export default function Home() {
   const [cases, setCases] = useState<RecoveryCase[]>([]);
@@ -264,6 +265,8 @@ export default function Home() {
             value={pendingCases}
           />
         </section>
+
+        <BatchRecovery onCompleted={loadCases} />
 
         {/* Recovery Cases */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900">

@@ -82,3 +82,40 @@ export async function executeRecovery(
     }
   );
 }
+
+export type BatchRecoveryRequest = {
+  batch_size: number;
+  delay_seconds: number;
+  max_revenue_at_risk: number;
+  max_consecutive_errors: number;
+};
+
+export type BatchRecoveryResponse = {
+  cases_found: number;
+  cases_processed: number;
+  successful_recoveries: number;
+  failed_recoveries: number;
+  policy_blocked: number;
+  deferred: number;
+  not_selected: number;
+  revenue_at_risk: number;
+  revenue_recovered: number;
+  recovery_rate: number;
+  revenue_recovery_rate: number;
+  stop_reason: string;
+};
+
+export async function executeBatchRecovery(
+  payload: BatchRecoveryRequest
+): Promise<BatchRecoveryResponse> {
+  return request<BatchRecoveryResponse>(
+    "/api/recovery/batch",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
