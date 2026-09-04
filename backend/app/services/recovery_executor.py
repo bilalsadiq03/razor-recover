@@ -46,7 +46,7 @@ def execute_recovery(payment_id: int) -> dict:
             )
 
         # ---------------------------------------------------------
-        # 2. Find recovery case
+        # 2. Find and lock recovery case
         # ---------------------------------------------------------
         recovery_case = db.execute(
             select(RecoveryCase)
@@ -54,13 +54,14 @@ def execute_recovery(payment_id: int) -> dict:
                 RecoveryCase.payment_id == payment_id,
                 RecoveryCase.status == "PENDING",
             )
+            .with_for_update()
         ).scalar_one_or_none()
 
         if recovery_case is None:
             raise ValueError(
                 f"No pending recovery case found for payment {payment_id}."
             )
-
+            
         # ---------------------------------------------------------
         # 3. Build context
         # ---------------------------------------------------------
