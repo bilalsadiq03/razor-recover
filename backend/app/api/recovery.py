@@ -11,6 +11,19 @@ router = APIRouter(
 )
 
 
+class RecoveryExecutionResponse(BaseModel):
+    payment_id: int
+    transaction_id: str
+    recovery_case_id: int
+    ai_action: str
+    approved_action: str | None = None
+    confidence: float
+    allowed: bool
+    status: str
+    amount_recovered: float
+    reason: str
+
+
 class BatchRecoveryRequest(BaseModel):
     batch_size: int = Field(
         default=3,
@@ -35,12 +48,27 @@ class BatchRecoveryRequest(BaseModel):
     )
 
 
-@router.post("/{payment_id}/execute")
+class BatchRecoveryResponse(BaseModel):
+    cases_found: int
+    cases_processed: int
+    successful_recoveries: int
+    failed_recoveries: int
+    policy_blocked: int
+    deferred: int
+    not_selected: int
+    revenue_at_risk: float
+    revenue_recovered: float
+    recovery_rate: float
+    revenue_recovery_rate: float
+    stop_reason: str
+
+
+@router.post(
+    "/{payment_id}/execute",
+    response_model=RecoveryExecutionResponse,
+)
 def execute_payment_recovery(payment_id: int):
-    """
-    Execute the autonomous recovery workflow
-    for one failed payment.
-    """
+    """Execute recovery for one failed payment."""
 
     try:
         return execute_recovery(payment_id)
@@ -51,20 +79,21 @@ def execute_payment_recovery(payment_id: int):
             detail=str(exc),
         )
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=str(exc),
+            detail="Recovery execution failed.",
         )
 
 
-@router.post("/batch")
+@router.post(
+    "/batch",
+    response_model=BatchRecoveryResponse,
+)
 def execute_batch_recovery(
     request: BatchRecoveryRequest,
 ):
-    """
-    Execute a controlled batch recovery run.
-    """
+    """Execute a controlled batch recovery run."""
 
     try:
         return run_batch(
@@ -74,8 +103,8 @@ def execute_batch_recovery(
             max_consecutive_errors=request.max_consecutive_errors,
         )
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=str(exc),
+            detail="Batch recovery execution failed.",
         )
