@@ -1,5 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+
+from app.core.database import SessionLocal
+from app.models import Payment, RecoveryCase
 
 from app.services.batch_recovery import run_batch
 from app.services.recovery_executor import execute_recovery
@@ -9,6 +13,23 @@ router = APIRouter(
     prefix="/api/recovery",
     tags=["Recovery"],
 )
+
+
+# ============================================================
+# Response Models
+# ============================================================
+
+class RecoveryCaseResponse(BaseModel):
+    id: int
+    payment_id: int
+    transaction_id: str
+    amount: float
+    status: str
+    recoverability: str
+    recommended_action: str | None = None
+    approved_action: str | None = None
+    amount_at_risk: float
+    amount_recovered: float
 
 
 class RecoveryExecutionResponse(BaseModel):
@@ -63,6 +84,83 @@ class BatchRecoveryResponse(BaseModel):
     stop_reason: str
 
 
+# ============================================================
+# List Recovery Cases
+# ============================================================
+
+@router.get(
+    "",
+    response_model=list[RecoveryCaseResponse],
+)
+def list_recovery_cases(
+    status: str | None = None,
+    limit: int = 50,
+):
+    """
+    Return recovery cases for the dashboard.
+
+    Optional:
+        status: filter by recovery status
+        limit: maximum number of cases
+    """
+
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be between 1 and 100.",
+        )
+
+    db = SessionLocal()
+
+    try:
+        query = (
+            select(
+                RecoveryCase,
+                Payment.transaction_id,
+            )
+            .join(
+                Payment,
+                Payment.id == RecoveryCase.payment_id,
+            )
+            .order_by(RecoveryCase.id.desc())
+            .limit(limit)
+        )
+
+        if status:
+            query = query.where(
+                RecoveryCase.status == status.upper()
+            )
+
+        rows = db.execute(query).all()
+
+        return [
+            RecoveryCaseResponse(
+                id=case.id,
+                payment_id=case.payment_id,
+                transaction_id=transaction_id,
+                amount=float(case.amount_at_risk),
+                status=case.status,
+                recoverability=case.recoverability,
+                recommended_action=case.recommended_action,
+                approved_action=case.approved_action,
+                amount_at_risk=float(
+                    case.amount_at_risk
+                ),
+                amount_recovered=float(
+                    case.amount_recovered
+                ),
+            )
+            for case, transaction_id in rows
+        ]
+
+    finally:
+        db.close()
+
+
+# ============================================================
+# Execute Individual Recovery
+# ============================================================
+
 @router.post(
     "/{payment_id}/execute",
     response_model=RecoveryExecutionResponse,
@@ -86,6 +184,10 @@ def execute_payment_recovery(payment_id: int):
         )
 
 
+# ============================================================
+# Execute Batch Recovery
+# ============================================================
+
 @router.post(
     "/batch",
     response_model=BatchRecoveryResponse,
@@ -108,3 +210,57 @@ def execute_batch_recovery(
             status_code=500,
             detail="Batch recovery execution failed.",
         )
+
+@router.get("")
+def get_recovery_cases(limit: int = 50):
+    """Return recent recovery cases for the dashboard."""
+
+    from sqlalchemy import select
+
+    from app.core.database import SessionLocal
+    from app.models import Payment, RecoveryCase
+
+    db = SessionLocal()
+
+    try:
+        cases = db.execute(
+            select(
+                RecoveryCase.id,
+                RecoveryCase.payment_id,
+                Payment.transaction_id,
+                Payment.amount,
+                RecoveryCase.status,
+                RecoveryCase.recoverability,
+                RecoveryCase.recommended_action,
+                RecoveryCase.approved_action,
+                RecoveryCase.amount_at_risk,
+                RecoveryCase.amount_recovered,
+            )
+            .join(
+                Payment,
+                Payment.id == RecoveryCase.payment_id,
+            )
+            .order_by(RecoveryCase.id.desc())
+            .limit(limit)
+        ).all()
+
+        return [
+            {
+                "id": case.id,
+                "payment_id": case.payment_id,
+                "transaction_id": case.transaction_id,
+                "amount": float(case.amount),
+                "status": case.status,
+                "recoverability": case.recoverability,
+                "recommended_action": case.recommended_action,
+                "approved_action": case.approved_action,
+                "amount_at_risk": float(case.amount_at_risk),
+                "amount_recovered": float(
+                    case.amount_recovered
+                ),
+            }
+            for case in cases
+        ]
+
+    finally:
+        db.close()
