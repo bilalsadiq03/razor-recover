@@ -32,3 +32,25 @@ export type ExecutionResult = {
   amount_recovered: number;
   reason: string;
 };
+
+export type BatchRecoveryRequest = {
+  batch_size: number;
+  delay_seconds: number;
+  max_revenue_at_risk: number;
+  max_consecutive_errors: number;
+};
+
+export type BatchRecoveryResult = {
+  cases_found: number;
+  cases_processed: number;
+  successful_recoveries: number;
+  failed_recoveries: number;
+  policy_blocked: number;
+  deferred: number;
+  not_selected: number;
+  revenue_at_risk: number;
+  revenue_recovered: number;
+  recovery_rate: number;
+  revenue_recovery_rate: number;
+  stop_reason: string;
+};

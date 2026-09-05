@@ -238,16 +238,12 @@ export default function BatchRecovery({
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <ResultCard
                 label="Case Recovery Rate"
-                value={`${result.recovery_rate.toFixed(
-                  2
-                )}%`}
+                value={`${(result.recovery_rate * 100).toFixed(2)}%`}
               />
 
               <ResultCard
                 label="Revenue Recovery Rate"
-                value={`${result.revenue_recovery_rate.toFixed(
-                  2
-                )}%`}
+                value={`${(result.revenue_recovery_rate * 100).toFixed(2)}%`}
               />
             </div>
           </div>

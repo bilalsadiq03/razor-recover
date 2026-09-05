@@ -39,6 +39,22 @@ def evaluate_policy(
     action = decision.action
 
     # ---------------------------------------------------------
+    # Rule 0: Never recover an already successful payment.
+    # ---------------------------------------------------------
+    if any(
+        attempt.status == "SUCCESS"
+        for attempt in context.recent_attempts
+    ):
+        return PolicyDecision(
+            allowed=False,
+            action="DO_NOT_CONTACT",
+            reason=(
+                "Recovery blocked: a previous payment attempt "
+                "already succeeded."
+        ),
+    )   
+
+    # ---------------------------------------------------------
     # Rule 1: Never retry after the retry limit.
     # ---------------------------------------------------------
     if action == "RETRY":

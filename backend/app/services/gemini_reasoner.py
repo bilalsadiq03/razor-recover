@@ -80,8 +80,91 @@ RECOVERY CONTEXT:
 Analyze the recovery context and recommend the single best action.
 """
 
+def deterministic_fallback(
+    context: RecoveryContext,
+) -> RecoveryDecision:
+    """
+    Safe deterministic fallback used when Gemini is unavailable.
 
-def recommend_recovery_action(context):
+    This does not use dataset ground truth.
+    It only uses the same recovery context available to Gemini.
+    """
+
+    # ---------------------------------------------------------
+    # Already successfully recovered
+    # ---------------------------------------------------------
+
+    if any(
+        attempt.status == "SUCCESS"
+        for attempt in context.recent_attempts
+    ):
+        return RecoveryDecision(
+            action="DO_NOT_CONTACT",
+            confidence=1.0,
+            reason=(
+                "Fallback decision: a previous payment attempt "
+                "already succeeded."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # Retry transient failures when retry budget remains
+    # ---------------------------------------------------------
+
+    transient_failures = {
+        "NETWORK_TIMEOUT",
+        "UPI_TIMEOUT",
+        "BANK_TIMEOUT",
+        "GATEWAY_TIMEOUT",
+        "TEMPORARY_FAILURE",
+    }
+
+    if (
+        context.payment.failure_reason
+        in transient_failures
+        and context.payment.retry_count < 2
+    ):
+        return RecoveryDecision(
+            action="RETRY",
+            confidence=0.85,
+            reason=(
+                "Fallback decision: the payment failed because "
+                "of a transient failure and retry capacity remains."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # Customer-facing recovery for other failed payments
+    # ---------------------------------------------------------
+
+    if context.payment.status == "FAILED":
+        return RecoveryDecision(
+            action="PAYMENT_LINK",
+            confidence=0.70,
+            reason=(
+                "Fallback decision: payment remains failed and "
+                "a payment link is a safe recovery option."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # Safest fallback
+    # ---------------------------------------------------------
+
+    return RecoveryDecision(
+        action="DO_NOT_CONTACT",
+        confidence=1.0,
+        reason=(
+            "Fallback decision: no safe recovery action "
+            "could be determined."
+        ),
+    )
+
+
+def recommend_recovery_action(
+    context: RecoveryContext,
+) -> RecoveryDecision:
+
     client = get_gemini_client()
 
     max_retries = 2
@@ -102,29 +185,54 @@ def recommend_recovery_action(context):
                 return response.parsed
 
             if response.text:
-                return RecoveryDecision.model_validate_json(response.text)
+                return RecoveryDecision.model_validate_json(
+                    response.text
+                )
 
-            raise RuntimeError("Gemini returned an empty response.")
+            raise RuntimeError(
+                "Gemini returned an empty response."
+            )
 
         except Exception as exc:
             error_text = str(exc)
 
-            # Quota/rate-limit errors should not be retried
-            # repeatedly because the quota will remain exhausted.
-            if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
-                raise RuntimeError(
-                    "Gemini rate limit/quota exceeded."
-                ) from exc
+            # -------------------------------------------------
+            # Gemini quota exhausted
+            # -------------------------------------------------
+            if (
+                "429" in error_text
+                or "RESOURCE_EXHAUSTED" in error_text
+            ):
+                print(
+                    "Gemini quota exceeded. "
+                    "Using deterministic fallback."
+                )
 
-            # Temporary Gemini availability errors can be retried.
-            if "503" in error_text or "UNAVAILABLE" in error_text:
+                return deterministic_fallback(context)
+
+            # -------------------------------------------------
+            # Gemini temporarily unavailable
+            # -------------------------------------------------
+            if (
+                "503" in error_text
+                or "UNAVAILABLE" in error_text
+            ):
                 if attempt < max_retries:
                     wait_seconds = 2 ** attempt
+
                     print(
                         f"Gemini temporarily unavailable. "
                         f"Retrying in {wait_seconds}s..."
                     )
+
                     time.sleep(wait_seconds)
                     continue
+
+                print(
+                    "Gemini unavailable after retries. "
+                    "Using deterministic fallback."
+                )
+
+                return deterministic_fallback(context)
 
             raise

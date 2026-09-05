@@ -129,6 +129,20 @@ def build_recovery_context(
         ).scalars().all()
 
         # --------------------------------------------------
+        # Determine whether payment was already recovered
+        # --------------------------------------------------
+
+        has_successful_attempt = any(
+            attempt.status == "SUCCESS"
+            for attempt in attempts
+        )
+
+        if has_successful_attempt:
+            effective_status = "RECOVERED"
+        else:
+            effective_status = payment.status
+
+        # --------------------------------------------------
         # Historical success rate
         # --------------------------------------------------
 
@@ -155,7 +169,7 @@ def build_recovery_context(
             currency=payment.currency,
             payment_method=payment.payment_method,
             bank=payment.bank,
-            status=payment.status,
+            status=effective_status,
             failure_reason=payment.failure_reason,
             retry_count=payment.retry_count,
         )

@@ -20,11 +20,34 @@ def run_batch(
         cases = db.execute(
             select(RecoveryCase)
             .where(RecoveryCase.status == "PENDING")
-            .order_by(RecoveryCase.id)
+            .order_by(
+                (
+                    RecoveryCase.recovery_score
+                    * RecoveryCase.amount_at_risk
+                ).desc()
+            )
             .limit(batch_size)
         ).scalars().all()
 
         print(f"Found {len(cases)} pending recovery cases.")
+
+        print("\n=== SELECTED RECOVERY CASES ===")
+
+        for case in cases:
+            priority = (
+                float(case.recovery_score)
+                * float(case.amount_at_risk)
+            )
+
+            print(
+                f"Case {case.id} | "
+                f"Payment {case.payment_id} | "
+                f"Score {case.recovery_score:.3f} | "
+                f"At Risk ₹{case.amount_at_risk:.2f} | "
+                f"Priority ₹{priority:.2f}"
+            )
+
+        print("===============================\n")
 
         results = []
         selected_cases = []
