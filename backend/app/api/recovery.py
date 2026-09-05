@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from typing import Optional
 
 from app.core.database import SessionLocal
 from app.models import Payment, RecoveryCase
@@ -37,7 +38,7 @@ class PaymentResponse(BaseModel):
     transaction_id: str
     amount: float
     payment_status: str
-    failure_reason: str
+    failure_reason: Optional[str] = None
     recovery_case: RecoveryCaseResponse | None
 
 

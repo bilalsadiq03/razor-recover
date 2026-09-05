@@ -174,29 +174,33 @@ def seed_database():
 
             payment = Payment(
                 transaction_id=row["transaction_id"],
-                order_id=order_map[
-                    row["order_id"]
-                ],
-                customer_id=customer_map[
-                    row["customer_id"]
-                ],
+                order_id=order_map[row["order_id"]],
+                customer_id=customer_map[row["customer_id"]],
                 amount=float(row["amount"]),
                 currency=row["currency"],
-                payment_method=row[
-                    "payment_method"
-                ],
+                payment_method=row["payment_method"],
                 bank=row["bank"],
-                status=row["status"],
+
+                # Every payment starts as FAILED for the
+                # recovery-demo environment.
+                #
+                # The simulator uses:
+                #   is_recoverable
+                #   optimal_action
+                #
+                # as isolated ground truth.
+                status="FAILED",
+
                 failure_reason=(
                     None
-                    if pd.isna(
-                        row["failure_reason"]
-                    )
+                    if pd.isna(row["failure_reason"])
                     else row["failure_reason"]
                 ),
-                retry_count=int(
-                    row["retry_count"]
-                ),
+
+                # Recovery attempts are controlled by the
+                # recovery executor, not historical CSV state.
+                retry_count=0,
+
                 created_at=pd.to_datetime(
                     row["created_at"]
                 ),
@@ -205,15 +209,15 @@ def seed_database():
             db.add(payment)
             db.flush()
 
-            payment_map[
-                row["transaction_id"]
-            ] = payment.id
+            payment_map[row["transaction_id"]] = payment.id
 
         print(
             f"Created {len(payment_map)} payments."
         )
 
-        # ------------------------------------------------
+       
+
+                # ------------------------------------------------
         # Payment attempts
         # ------------------------------------------------
 
@@ -221,19 +225,47 @@ def seed_database():
 
         for _, row in attempts_df.iterrows():
 
+            transaction_id = row["transaction_id"]
+
+            # Find transaction ground truth
+            transaction = transactions_df[
+                transactions_df["transaction_id"]
+                == transaction_id
+            ]
+
+            if transaction.empty:
+                continue
+
+            transaction_row = transaction.iloc[0]
+
+            is_recoverable = (
+                str(transaction_row["is_recoverable"]).lower()
+                == "true"
+            )
+
+            # ------------------------------------------------
+            # IMPORTANT:
+            #
+            # Recoverable demo payments must NOT already have
+            # a successful historical attempt.
+            #
+            # Otherwise the AI correctly concludes that no
+            # recovery action is necessary.
+            # ------------------------------------------------
+
+            if (
+                is_recoverable
+                and str(row["status"]).upper() == "SUCCESS"
+            ):
+                continue
+
             attempt = PaymentAttempt(
-                payment_id=payment_map[
-                    row["transaction_id"]
-                ],
-                attempt_number=int(
-                    row["attempt_number"]
-                ),
+                payment_id=payment_map[transaction_id],
+                attempt_number=int(row["attempt_number"]),
                 status=row["status"],
                 failure_reason=(
                     None
-                    if pd.isna(
-                        row["failure_reason"]
-                    )
+                    if pd.isna(row["failure_reason"])
                     else row["failure_reason"]
                 ),
                 attempted_at=pd.to_datetime(
